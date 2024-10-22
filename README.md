@@ -1,5 +1,21 @@
 [TOC]
 
+# Iniciar el proyecto
+
+## Paso 1:
+
+instalar variables de entorno:
+
+```
+npm i
+```
+
+iniciar:
+
+```
+npm run dev
+```
+
 # Descripción del Proyecto
 
 La **Weather App** es una aplicación diseñada para proporcionar información meteorológica actualizada y precisa a los usuarios. A través de una interfaz intuitiva y amigable, la app ofrecerá datos sobre la temperatura, humedad, pronóstico a corto y largo plazo, y alertas meteorológicas para diversas ubicaciones en todo el mundo. Utilizando **WeatherAPI** para obtener datos meteorológicos en tiempo real, la aplicación se asegurará de que los usuarios tengan acceso a información relevante sobre el clima en su área y en cualquier otro lugar que deseen consultar.
