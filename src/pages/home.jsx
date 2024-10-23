@@ -17,13 +17,24 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState('today');
   const [isScrolled, setIsScrolled] = useState(false);
   const [locationError, setLocationError] = useState(null);
+  const [currentDateTime, setCurrentDateTime] = useState(new Date());
+
+  // Actualizar la fecha y hora cada segundo para mayor precisión
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentDateTime(new Date());
+    }, 1000); // Actualizar cada segundo
+
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const fetchWeatherData = async (latitude, longitude) => {
       try {
+        const dt = currentDateTime.toISOString();
         const [current, forecast] = await Promise.all([
-          weatherService.getCurrentWeather(`${latitude},${longitude}`),
-          weatherService.getForecast(`${latitude},${longitude}`, 10)
+          weatherService.getCurrentWeather(`${latitude},${longitude}`, dt),
+          weatherService.getForecast(`${latitude},${longitude}`, 10, dt)
         ]);
 
         setWeatherData({ current, forecast });
@@ -53,7 +64,7 @@ export default function Home() {
     };
 
     getLocation();
-  }, []);
+  }, [currentDateTime]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -78,19 +89,45 @@ export default function Home() {
 
   const { current, forecast } = weatherData;
 
-  const hourlyData = forecast.forecast.forecastday[0].hour.map(hour => ({
-    time: new Date(hour.time).getHours() + ':00',
-    temp: hour.temp_c
-  }));
+  // Formatear la fecha actual en español
+  const dateOptions = {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  };
 
-  const rainChanceData = forecast.forecast.forecastday[0].hour.map(hour => ({
-    time: new Date(hour.time).getHours() + ':00',
-    chance: hour.chance_of_rain
-  }));
+  // Formatear la hora actual con segundos
+  const timeOptions = {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  };
 
-  // Obtener la fecha de hoy
-  const today = new Date().toISOString().split('T')[0]; // "YYYY-MM-DD"
+  const formattedDate = currentDateTime.toLocaleDateString('es-ES', dateOptions);
+  const formattedTime = currentDateTime.toLocaleTimeString('es-ES', timeOptions);
+  const formattedDateTime = `${formattedDate} ${formattedTime}`;
 
+  // Capitalizar la primera letra del mes y día de la semana
+  const capitalizedDateTime = formattedDateTime.replace(/^\w|\s\w/g, letra => letra.toUpperCase());
+
+  const currentHour = currentDateTime.getHours();
+  const hourlyData = forecast.forecast.forecastday[0].hour
+    .filter(hour => new Date(hour.time).getHours() >= currentHour)
+    .map(hour => ({
+      time: new Date(hour.time).getHours() + ':00',
+      temp: hour.temp_c
+    }));
+
+  const rainChanceData = forecast.forecast.forecastday[0].hour
+    .filter(hour => new Date(hour.time).getHours() >= currentHour)
+    .map(hour => ({
+      time: new Date(hour.time).getHours() + ':00',
+      chance: hour.chance_of_rain
+    }));
+
+  const today = currentDateTime.toISOString().split('T')[0];
   const todayForecast = forecast.forecast.forecastday.find(day => day.date === today);
 
   if (!todayForecast) {
@@ -98,10 +135,20 @@ export default function Home() {
   }
 
   const tenDaysForecast = forecast.forecast.forecastday.map(day => ({
-    day: new Date(day.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }),
+    day: new Date(day.date).toLocaleDateString('es-ES', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric'
+    }),
     condition: day.day.condition.text,
     high: Math.round(day.day.maxtemp_c),
     low: Math.round(day.day.mintemp_c)
+  }));
+
+  // Capitalizar la primera letra de cada día en el pronóstico de 10 días
+  const capitalizedTenDaysForecast = tenDaysForecast.map(forecast => ({
+    ...forecast,
+    day: forecast.day.replace(/^\w|\s\w/g, letra => letra.toUpperCase())
   }));
 
   return (
@@ -109,11 +156,16 @@ export default function Home() {
       <img src="/storage/img/background.png" alt="" className="imagenHome" />
 
       <div className="main-content">
-        <WeatherHeader location={current.location.name} />
-        <CurrentWeather 
+        <WeatherHeader
+          location={current.location.name}
+          datetime={capitalizedDateTime}
+        />
+        <CurrentWeather
           temperature={Math.round(current.current.temp_c)}
           feelsLike={Math.round(current.current.feelslike_c)}
           condition={current.current.condition.text}
+          dayTemp={Math.round(todayForecast.day.maxtemp_c)}
+          nightTemp={Math.round(todayForecast.day.mintemp_c)}
         />
       </div>
 
@@ -121,18 +173,18 @@ export default function Home() {
         <WeatherTabs activeTab={activeTab} setActiveTab={setActiveTab} />
 
         {activeTab === 'tenDays' ? (
-          <TenDaysForecast forecast={tenDaysForecast} />
+          <TenDaysForecast forecast={capitalizedTenDaysForecast} />
         ) : (
           <>
             <MetricsGrid />
             <HourlyForecast hourlyData={hourlyData} />
-            <DayForecast 
-              condition={todayForecast.day.condition.text} 
-              high={Math.round(todayForecast.day.maxtemp_c)} 
+            <DayForecast
+              condition={todayForecast.day.condition.text}
+              high={Math.round(todayForecast.day.maxtemp_c)}
               low={Math.round(todayForecast.day.mintemp_c)}
             />
             <RainForecast rainChanceData={rainChanceData} />
-            <SunTimes 
+            <SunTimes
               sunrise={todayForecast.astro.sunrise}
               sunset={todayForecast.astro.sunset}
             />
