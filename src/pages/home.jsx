@@ -19,11 +19,11 @@ export default function Home() {
   const [locationError, setLocationError] = useState(null);
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
 
-  // Actualizar la fecha y hora cada segundo para mayor precisión
+  // Update date and time every second
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentDateTime(new Date());
-    }, 1000); // Actualizar cada segundo
+    }, 1000);
 
     return () => clearInterval(timer);
   }, []);
@@ -89,7 +89,6 @@ export default function Home() {
 
   const { current, forecast } = weatherData;
 
-  // Formatear la fecha actual en español
   const dateOptions = {
     weekday: 'long',
     year: 'numeric',
@@ -97,7 +96,6 @@ export default function Home() {
     day: 'numeric'
   };
 
-  // Formatear la hora actual con segundos
   const timeOptions = {
     hour: '2-digit',
     minute: '2-digit',
@@ -108,31 +106,42 @@ export default function Home() {
   const formattedDate = currentDateTime.toLocaleDateString('es-ES', dateOptions);
   const formattedTime = currentDateTime.toLocaleTimeString('es-ES', timeOptions);
   const formattedDateTime = `${formattedDate} ${formattedTime}`;
-
-  // Capitalizar la primera letra del mes y día de la semana
   const capitalizedDateTime = formattedDateTime.replace(/^\w|\s\w/g, letra => letra.toUpperCase());
 
-  const currentHour = currentDateTime.getHours();
-  const hourlyData = forecast.forecast.forecastday[0].hour
-    .filter(hour => new Date(hour.time).getHours() >= currentHour)
-    .map(hour => ({
+  // Get today's and tomorrow's dates
+  const today = currentDateTime.toISOString().split('T')[0];
+  const tomorrow = new Date(currentDateTime);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowDate = tomorrow.toISOString().split('T')[0];
+
+  // Get forecasts for today and tomorrow
+  const todayForecast = forecast.forecast.forecastday.find(day => day.date === today);
+  const tomorrowForecast = forecast.forecast.forecastday.find(day => day.date === tomorrowDate);
+
+  if (!todayForecast || !tomorrowForecast) {
+    return <div>Forecast data not available.</div>;
+  }
+
+  // Get hourly data based on active tab
+  const getHourlyData = (selectedForecast) => {
+    return selectedForecast.hour.map(hour => ({
       time: new Date(hour.time).getHours() + ':00',
       temp: hour.temp_c
     }));
+  };
 
-  const rainChanceData = forecast.forecast.forecastday[0].hour
-    .filter(hour => new Date(hour.time).getHours() >= currentHour)
-    .map(hour => ({
+  // Get rain chance data based on active tab
+  const getRainChanceData = (selectedForecast) => {
+    return selectedForecast.hour.map(hour => ({
       time: new Date(hour.time).getHours() + ':00',
       chance: hour.chance_of_rain
     }));
+  };
 
-  const today = currentDateTime.toISOString().split('T')[0];
-  const todayForecast = forecast.forecast.forecastday.find(day => day.date === today);
-
-  if (!todayForecast) {
-    return <div>No data available for today.</div>;
-  }
+  // Get the appropriate forecast data based on active tab
+  const activeForecast = activeTab === 'today' ? todayForecast : tomorrowForecast;
+  const hourlyData = getHourlyData(activeForecast);
+  const rainChanceData = getRainChanceData(activeForecast);
 
   const tenDaysForecast = forecast.forecast.forecastday.map(day => ({
     day: new Date(day.date).toLocaleDateString('es-ES', {
@@ -145,7 +154,6 @@ export default function Home() {
     low: Math.round(day.day.mintemp_c)
   }));
 
-  // Capitalizar la primera letra de cada día en el pronóstico de 10 días
   const capitalizedTenDaysForecast = tenDaysForecast.map(forecast => ({
     ...forecast,
     day: forecast.day.replace(/^\w|\s\w/g, letra => letra.toUpperCase())
@@ -161,11 +169,11 @@ export default function Home() {
           datetime={capitalizedDateTime}
         />
         <CurrentWeather
-          temperature={Math.round(current.current.temp_c)}
-          feelsLike={Math.round(current.current.feelslike_c)}
-          condition={current.current.condition.text}
-          dayTemp={Math.round(todayForecast.day.maxtemp_c)}
-          nightTemp={Math.round(todayForecast.day.mintemp_c)}
+          temperature={activeTab === 'today' ? Math.round(current.current.temp_c) : Math.round(tomorrowForecast.day.avgtemp_c)}
+          feelsLike={activeTab === 'today' ? Math.round(current.current.feelslike_c) : Math.round(tomorrowForecast.day.avgtemp_c)}
+          condition={activeTab === 'today' ? current.current.condition.text : tomorrowForecast.day.condition.text}
+          dayTemp={Math.round(activeForecast.day.maxtemp_c)}
+          nightTemp={Math.round(activeForecast.day.mintemp_c)}
         />
       </div>
 
@@ -176,17 +184,17 @@ export default function Home() {
           <TenDaysForecast forecast={capitalizedTenDaysForecast} />
         ) : (
           <>
-            <MetricsGrid />
+            <MetricsGrid weatherData={weatherData} activeTab={activeTab} />
             <HourlyForecast hourlyData={hourlyData} />
             <DayForecast
-              condition={todayForecast.day.condition.text}
-              high={Math.round(todayForecast.day.maxtemp_c)}
-              low={Math.round(todayForecast.day.mintemp_c)}
+              condition={activeForecast.day.condition.text}
+              high={Math.round(activeForecast.day.maxtemp_c)}
+              low={Math.round(activeForecast.day.mintemp_c)}
             />
             <RainForecast rainChanceData={rainChanceData} />
             <SunTimes
-              sunrise={todayForecast.astro.sunrise}
-              sunset={todayForecast.astro.sunset}
+              sunrise={activeForecast.astro.sunrise}
+              sunset={activeForecast.astro.sunset}
             />
           </>
         )}

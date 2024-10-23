@@ -8,7 +8,7 @@ export default function WeatherTabs({ activeTab, setActiveTab }) {
   ];
 
   return (
-    <div className="tabs-container">
+    <div className="weather-tabs tabs-container">
       {tabs.map((tab) => (
         <button
           key={tab.id}
